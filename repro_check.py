@@ -1,0 +1,15 @@
+import numpy as np, json
+from fl_core import *
+X,y,names,paths = load_data()
+S = Setup(X,y,42)
+print("train/test:", S.Xtr.shape, S.Xte.shape, "client sizes:", [len(i) for i in S.client_idx])
+fed = run_fl(S, "fedavg", chain=AuditChain())
+a,p,r,f1,_ = evaluate(fed["params"], S.Xte, S.yte)
+cp,(ca,cpr,cr,cf1,_) = run_central(S)
+pl = run_fl(S, "fedavg", attack="noise", attackers=(0,))
+tr = run_fl(S, "trim", b=1, attack="noise", attackers=(0,))
+mn = lambda h: min(x["test_acc"] for x in h["history"] if x["round"]>=10)
+print(f"FedAvg acc {a:.4f} f1 {f1:.4f} | central acc {ca:.4f} f1 {cf1:.4f}")
+print(f"attack plain min {mn(pl):.4f} final {pl['history'][-1]['test_acc']} | trim min {mn(tr):.4f} final {tr['history'][-1]['test_acc']}")
+print("comm actual MiB:", fed["comm_bytes_actual"]/1048576, "| all-float32 MiB:", 2*N_CLIENTS*ROUNDS*PARAM_COUNT*4/1048576)
+print("chain valid:", fed["chain"].is_valid())
